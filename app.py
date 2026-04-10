@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import sqlite3
 import os
@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-DB = "projects.db"
+DB = "/tmp/projects.db"
 
 def init_db():
     conn = sqlite3.connect(DB)
@@ -48,7 +48,11 @@ def projects():
 
 @app.route("/add", methods=["POST"])
 def add():
-    data = request.json
+    data = request.get_json(silent=True) or {}
+
+    required = ["name", "image", "description", "date", "download"]
+    if not all(k in data for k in required):
+        return jsonify({"error": "missing fields"}), 400
 
     conn = sqlite3.connect(DB)
     c = conn.cursor()
@@ -63,9 +67,9 @@ def add():
 
 @app.errorhandler(404)
 def not_found(e):
-    return render_template('404.html'), 404
+    return jsonify({"error": "not found"}), 404
 
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
