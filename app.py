@@ -1,20 +1,70 @@
-
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import sqlite3
 import os
-from flask import Flask, render_template
-from dotenv import load_dotenv
 
-load_dotenv()
+app = Flask(__name__)
+CORS(app)
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+DB = "projects.db"
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+def init_db():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS projects(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            image TEXT,
+            description TEXT,
+            date TEXT,
+            download TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-# Custom 404 error handler
+init_db()
+
+@app.route("/projects", methods=["GET"])
+def projects():
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("SELECT * FROM projects")
+    rows = c.fetchall()
+    conn.close()
+
+    return jsonify([
+        {
+            "id": r[0],
+            "name": r[1],
+            "image": r[2],
+            "description": r[3],
+            "date": r[4],
+            "download": r[5]
+        }
+        for r in rows
+    ])
+
+@app.route("/add", methods=["POST"])
+def add():
+    data = request.json
+
+    conn = sqlite3.connect(DB)
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO projects(name,image,description,date,download)
+        VALUES (?,?,?,?,?)
+    """, (data["name"], data["image"], data["description"], data["date"], data["download"]))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"ok": True})
+
 @app.errorhandler(404)
 def not_found(e):
     return render_template('404.html'), 404
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
